@@ -7,17 +7,20 @@ import requests
 import pickle
 
 from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.preprocessing import LabelEncoder, StandardScaler, PolynomialFeatures
 from sklearn.metrics import accuracy_score, r2_score
 
 # === Models ===
 from sklearn.linear_model import LinearRegression, Lasso, Ridge, ElasticNet, LogisticRegression
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, ExtraTreesRegressor
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, ExtraTreesClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, ExtraTreesClassifier, AdaBoostClassifier, AdaBoostRegressor
 from sklearn.neighbors import KNeighborsRegressor, KNeighborsClassifier
 from sklearn.svm import SVR, SVC
-from sklearn.naive_bayes import GaussianNB
+from sklearn.naive_bayes import GaussianNB, MultinomialNB, ComplementNB
+from imblearn.over_sampling import SMOTE
+from imblearn.under_sampling import RandomUnderSampler
+from imblearn.combine import SMOTEENN
 import xgboost as xgb
 
 # === Together API ===
@@ -42,7 +45,7 @@ def ask_ml_engineer_agent(prompt):
         "https://api.together.xyz/v1/chat/completions",
         headers={"Authorization": f"Bearer {together_api_key}"},
         json={
-            "model": "meta-llama/Llama-3-8B-Instruct",
+            "model": "mistralai/Mistral-7B-Instruct-v0.1",
             "messages": [{"role": "user", "content": f"[ML ENGINEER] {prompt}"}],
         }
     )
@@ -50,6 +53,7 @@ def ask_ml_engineer_agent(prompt):
         return response.json()["choices"][0]["message"]["content"]
     else:
         return f"Error: {response.text}"
+
 # === Agent Class ===
 class AutoMLAgent:
     def __init__(self, X, y):
@@ -75,9 +79,12 @@ class AutoMLAgent:
                 "Random Forest": RandomForestClassifier(),
                 "Gradient Boosting": GradientBoostingClassifier(),
                 "Extra Trees": ExtraTreesClassifier(),
+                "AdaBoost": AdaBoostClassifier(),
                 "KNN": KNeighborsClassifier(),
                 "SVC": SVC(),
-                "Naive Bayes": GaussianNB(),
+                "Naive Bayes (Gaussian)": GaussianNB(),
+                "Naive Bayes (Multinomial)": MultinomialNB(),
+                "Naive Bayes (Complement)": ComplementNB(),
                 "XGBoost": xgb.XGBClassifier(use_label_encoder=False, eval_metric='mlogloss')
             },
             "regression": {
@@ -89,9 +96,11 @@ class AutoMLAgent:
                 "Random Forest": RandomForestRegressor(),
                 "Gradient Boosting": GradientBoostingRegressor(),
                 "Extra Trees": ExtraTreesRegressor(),
+                "AdaBoost": AdaBoostRegressor(),
                 "KNN": KNeighborsRegressor(),
                 "SVR": SVR(),
-                "XGBoost": xgb.XGBRegressor()
+                "XGBoost": xgb.XGBRegressor(),
+                "Polynomial Linear Regression": make_polynomial_model()
             }
         }["classification" if self.classification else "regression"]
 
@@ -99,6 +108,11 @@ class AutoMLAgent:
         for test_size in [0.1, 0.2, 0.3]:
             X_train, X_test, y_train, y_test = train_test_split(
                 self.X, self.y, test_size=test_size, random_state=42)
+            
+            if self.classification and len(np.unique(y_train)) > 2:
+                sampler = SMOTE()
+                X_train, y_train = sampler.fit_resample(X_train, y_train)
+
             X_train = self.scaler.fit_transform(X_train)
             X_test = self.scaler.transform(X_test)
 
@@ -129,6 +143,10 @@ class AutoMLAgent:
     def save_best_model(self):
         with open("best_model.pkl", "wb") as f:
             pickle.dump(self.best_model, f)
+
+def make_polynomial_model():
+    from sklearn.pipeline import make_pipeline
+    return make_pipeline(PolynomialFeatures(degree=2), LinearRegression())
 
 # === Streamlit UI ===
 st.set_page_config(page_title="Agentic AutoML AI", layout="wide")
@@ -179,6 +197,17 @@ if 'agent_results' in st.session_state and 'best_info' in st.session_state:
     st.markdown(
         f"The agent recommends using the **{best['Model']}** model with a **{int(best['Test Size'] * 100)}%** test split for your dataset, as it yielded the highest performance for a **{best['Type']}** task."
     )
+
+    # === Reasoning Agent (LLM) ===
+    prompt = f"""
+    I am working on a {st.session_state['best_info']['Type']} problem.
+    The best performing model is {st.session_state['best_info']['Model']} with a score of {st.session_state['best_info']['Score']} on test size {st.session_state['best_info']['Test Size']}.
+    Suggest advanced improvements including hyperparameter tuning strategies, feature selection methods, data augmentation, dimensionality reduction, ensemble techniques, and possibly neural network alternatives.
+    Provide suggestions in bullet points with concise reasoning.
+    """
+    st.subheader("🧠 Agent's Insight via Together AI")
+    response = ask_data_scientist_agent(prompt)
+    st.write(response)
 
 # === Sidebar Multi-Agent Chat ===
 st.sidebar.title("💬 Multi-Agent Chat")
