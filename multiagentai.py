@@ -23,17 +23,29 @@ import xgboost as xgb
 # === Together API ===
 together_api_key = "tgp_v1_4hJBRX0XDlwnw_hhUnhP0e_lpI-u92Xhnqny2QIDAIM"
 
-def ask_together_agent(prompt):
+def ask_data_scientist_agent(prompt):
     response = requests.post(
         "https://api.together.xyz/v1/chat/completions",
         headers={"Authorization": f"Bearer {together_api_key}"},
         json={
-            "model": "mistralai/Mistral-7B-Instruct-v0.1",  # ✅ Valid and supported
-            "messages": [{"role": "user", "content": prompt}],
+            "model": "mistralai/Mistral-7B-Instruct-v0.1",
+            "messages": [{"role": "user", "content": f"[DATA SCIENTIST] {prompt}"}],
         }
     )
+    if response.status_code == 200:
+        return response.json()["choices"][0]["message"]["content"]
+    else:
+        return f"Error: {response.text}"
 
-
+def ask_ml_engineer_agent(prompt):
+    response = requests.post(
+        "https://api.together.xyz/v1/chat/completions",
+        headers={"Authorization": f"Bearer {together_api_key}"},
+        json={
+            "model": "teknium/OpenHermes-2.5-Mistral-7B",
+            "messages": [{"role": "user", "content": f"[ML ENGINEER] {prompt}"}],
+        }
+    )
     if response.status_code == 200:
         return response.json()["choices"][0]["message"]["content"]
     else:
@@ -144,6 +156,7 @@ if uploaded_file:
                 agent.save_best_model()
                 st.session_state['agent_results'] = results_df
                 st.session_state['best_info'] = best
+                st.session_state['data_preview'] = df.head(3).to_string(index=False)
             st.success("✅ Agent training complete!")
 
 # === Show Results from Session State ===
@@ -168,20 +181,20 @@ if 'agent_results' in st.session_state and 'best_info' in st.session_state:
         f"The agent recommends using the **{best['Model']}** model with a **{int(best['Test Size'] * 100)}%** test split for your dataset, as it yielded the highest performance for a **{best['Type']}** task."
     )
 
-    # Reasoning Agent (LLM)
-    prompt = f"""
-    I am working on a {st.session_state['best_info']['Type']} problem.
-    The best performing model is {st.session_state['best_info']['Model']} with a score of {st.session_state['best_info']['Score']} on test size {st.session_state['best_info']['Test Size']}.
-    Suggest ways to improve it further: tuning, feature engineering, or algorithm switching.
-    """
-    st.subheader("🧠 Agent's Insight via Together AI")
-    response = ask_together_agent(prompt)
-    st.write(response)
-
 # === Sidebar Multi-Agent Chat ===
 st.sidebar.title("💬 Multi-Agent Chat")
-query = st.sidebar.text_area("Ask the AI Agent something about your dataset or models")
-if query:
-    st.sidebar.write("🤖 Thinking...")
-    answer = ask_together_agent(query)
-    st.sidebar.write(answer)
+query = st.sidebar.text_area("Ask both agents something about your dataset or models")
+if query and 'best_info' in st.session_state and 'data_preview' in st.session_state:
+    context = f"Dataset Sample:\n{st.session_state['data_preview']}\n\nBest Model Info: {st.session_state['best_info']}"
+    combined_prompt = f"{context}\n\nUser Question: {query}"
+
+    col1, col2 = st.sidebar.columns(2)
+    with col1:
+        st.sidebar.markdown("**🧠 Data Scientist Agent:**")
+        answer1 = ask_data_scientist_agent(combined_prompt)
+        st.sidebar.write(answer1)
+
+    with col2:
+        st.sidebar.markdown("**🛠️ ML Engineer Agent:**")
+        answer2 = ask_ml_engineer_agent(combined_prompt)
+        st.sidebar.write(answer2)
