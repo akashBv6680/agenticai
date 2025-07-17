@@ -28,7 +28,7 @@ def ask_together_agent(prompt):
         "https://api.together.xyz/v1/chat/completions",
         headers={"Authorization": f"Bearer {together_api_key}"},
         json={
-            "model": "mistralai/Mistral-7B-Instruct-v0.1",  # ✅ working one
+            "model": "mistral-7b-instruct",
             "messages": [{"role": "user", "content": prompt}],
         }
     )
@@ -36,7 +36,6 @@ def ask_together_agent(prompt):
         return response.json()["choices"][0]["message"]["content"]
     else:
         return f"Error: {response.text}"
-
 
 # === Agent Class ===
 class AutoMLAgent:
@@ -150,8 +149,22 @@ if 'agent_results' in st.session_state and 'best_info' in st.session_state:
     st.subheader("📈 Model Comparison")
     st.dataframe(st.session_state['agent_results'])
 
-    st.subheader("🏆 Best Model")
-    st.write(st.session_state['best_info'])
+    st.markdown("### 🧠 Agent AI Performance")
+    best = st.session_state['best_info']
+
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.success(f"**Best Model:** `{best['Model']}`")
+    with col2:
+        st.success(f"**Score ({'Accuracy' if best['Type']=='Classification' else 'R2 Score'}):** `{best['Score']}`")
+    with col3:
+        st.success(f"**Test Size:** `{int(best['Test Size'] * 100)}%`")
+    with col4:
+        st.success(f"**Type:** `{best['Type']}`")
+
+    st.markdown(
+        f"The agent recommends using the **{best['Model']}** model with a **{int(best['Test Size'] * 100)}%** test split for your dataset, as it yielded the highest performance for a **{best['Type']}** task."
+    )
 
     # Reasoning Agent (LLM)
     prompt = f"""
