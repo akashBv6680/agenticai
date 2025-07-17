@@ -22,13 +22,12 @@ import xgboost as xgb
 
 # === Together API ===
 together_api_key = "tgp_v1_4hJBRX0XDlwnw_hhUnhP0e_lpI-u92Xhnqny2QIDAIM"
-
 def ask_together_agent(prompt):
     response = requests.post(
         "https://api.together.xyz/v1/chat/completions",
         headers={"Authorization": f"Bearer {together_api_key}"},
         json={
-            "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+            "model": "mistralai/Mixtral-8x7B-Instruct",
             "messages": [{"role": "user", "content": prompt}],
         }
     )
@@ -164,9 +163,30 @@ if 'agent_results' in st.session_state and 'best_info' in st.session_state:
     st.write(response)
 
 # === Sidebar Multi-Agent Chat ===
+# === Sidebar Multi-Agent Chat with Context ===
 st.sidebar.title("💬 Multi-Agent Chat")
 query = st.sidebar.text_area("Ask the AI Agent something about your dataset or models")
-if query:
+
+if query and 'best_info' in st.session_state and 'agent_results' in st.session_state:
+    context = f"""
+    Dataset Overview:
+    - Shape: {df.shape}
+    - Columns: {list(df.columns)}
+    - Selected Target: {target_col}
+    - Task Type: {'Classification' if st.session_state['best_info']['Type'] == 'Classification' else 'Regression'}
+
+    Best Model Summary:
+    - Model: {st.session_state['best_info']['Model']}
+    - Score: {st.session_state['best_info']['Score']}
+    - Test Size: {st.session_state['best_info']['Test Size']}
+
+    Top Models:
+    {st.session_state['agent_results'].head(3).to_string(index=False)}
+
+    User Query:
+    {query}
+    """
     st.sidebar.write("🤖 Thinking...")
-    answer = ask_together_agent(query)
+    answer = ask_together_agent(context)
     st.sidebar.write(answer)
+
