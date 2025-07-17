@@ -42,7 +42,7 @@ def ask_ml_engineer_agent(prompt):
         "https://api.together.xyz/v1/chat/completions",
         headers={"Authorization": f"Bearer {together_api_key}"},
         json={
-            "model": "teknium/OpenHermes-2.5-Mistral-7B",
+            "model": "meta-llama/Llama-3-8B-Instruct",
             "messages": [{"role": "user", "content": f"[ML ENGINEER] {prompt}"}],
         }
     )
@@ -50,7 +50,6 @@ def ask_ml_engineer_agent(prompt):
         return response.json()["choices"][0]["message"]["content"]
     else:
         return f"Error: {response.text}"
-
 # === Agent Class ===
 class AutoMLAgent:
     def __init__(self, X, y):
