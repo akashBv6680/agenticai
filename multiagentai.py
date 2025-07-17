@@ -28,7 +28,7 @@ def ask_together_agent(prompt):
         "https://api.together.xyz/v1/chat/completions",
         headers={"Authorization": f"Bearer {together_api_key}"},
         json={
-            "model": "mistral-7b-instruct",
+            "model": "meta-llama-3-70b-instruct",
             "messages": [{"role": "user", "content": prompt}],
         }
     )
