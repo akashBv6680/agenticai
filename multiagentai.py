@@ -28,10 +28,12 @@ def ask_together_agent(prompt):
         "https://api.together.xyz/v1/chat/completions",
         headers={"Authorization": f"Bearer {together_api_key}"},
         json={
-            "model": "mistral-7b-instruct",
+            "model": "mistralai/Mistral-7B-Instruct-v0.1",  # ✅ Valid and supported
             "messages": [{"role": "user", "content": prompt}],
         }
     )
+
+
     if response.status_code == 200:
         return response.json()["choices"][0]["message"]["content"]
     else:
