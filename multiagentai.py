@@ -28,7 +28,7 @@ def ask_together_agent(prompt):
         "https://api.together.xyz/v1/chat/completions",
         headers={"Authorization": f"Bearer {together_api_key}"},
         json={
-            "model": "meta-llama-3-70b-instruct",
+            "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
             "messages": [{"role": "user", "content": prompt}],
         }
     )
@@ -36,6 +36,7 @@ def ask_together_agent(prompt):
         return response.json()["choices"][0]["message"]["content"]
     else:
         return f"Error: {response.text}"
+
 
 # === Agent Class ===
 class AutoMLAgent:
